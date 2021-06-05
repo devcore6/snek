@@ -7,6 +7,7 @@
 # define PS2_S 0x1F
 # define PS2_D 0x20
 # define PS2_ENTER 0x1c
+# define PS2_SPACE 0x39
 
 # define PS2_RELEASE_W 0x91
 # define PS2_RELEASE_A 0x9E

@@ -30,6 +30,7 @@ bool _enter = false;
 
 extern uint8_t snake_direction;
 extern bool dead;
+extern bool ai;
 
 __attribute__((interrupt)) void irq1(struct interrupt_frame* frame) {
 	if(inb(0x64) & 0x01) {
@@ -40,6 +41,7 @@ __attribute__((interrupt)) void irq1(struct interrupt_frame* frame) {
 			case PS2_S: { _s = true; break; }
 			case PS2_D: { _d = true; break; }
 			case PS2_ENTER: { _enter = true; break; }
+			case PS2_SPACE: { ai = !ai; break; }
 			case PS2_RELEASE_W: { _w = false; break; }
 			case PS2_RELEASE_A: { _a = false; break; }
 			case PS2_RELEASE_S: { _s = false; break; }
@@ -49,7 +51,7 @@ __attribute__((interrupt)) void irq1(struct interrupt_frame* frame) {
 	}
 
 	// Update snake direction
-	if(!dead) {
+	if(!dead && !ai) {
 		if(_w && snake_direction != 2) snake_direction = 0;
 		if(_a && snake_direction != 3) snake_direction = 1;
 		if(_s && snake_direction != 0) snake_direction = 2;

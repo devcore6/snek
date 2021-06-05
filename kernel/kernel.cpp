@@ -10,6 +10,7 @@ size_t snake_growth = 0;
 extern "C" {
 	uint8_t snake_direction = 0;
 	bool dead = true;
+	bool ai = true;
 }
 
 uint16_t apple = 0;
@@ -17,9 +18,9 @@ uint16_t apple = 0;
 uint8_t snake_speed = 0;
 
 // 0 = North
-// 1 = East
+// 1 = West
 // 2 = South
-// 3 = West
+// 3 = East
 
 void spawn_apple() {
 	while(true) {
@@ -65,6 +66,55 @@ void die() {
 	tty_init();
 	tty_write("You lost kek\n");
 	dead = true;
+}
+
+uint8_t last_column = 0;
+uint8_t last_dir = 0;
+
+void do_ai() {
+	switch(snake_direction) {
+		case 0: { // Going north - should turn east after
+			uint8_t old_x = (snake_data[0] & 0xFF00) >> 8;
+			uint8_t old_y = (snake_data[0] & 0x00FF);
+			last_column = old_x;
+			last_dir = 0;
+			if(old_y == 0) {
+				snake_direction = 3;
+			}
+			break;
+		}
+		case 1: { // Going West - should turn north after
+			uint8_t old_x = (snake_data[0] & 0xFF00) >> 8;
+			if(old_x == 0) {
+				snake_direction = 0;
+			}
+			break;
+		}
+		case 2: { // Going South - should turn east/west after
+			uint8_t old_x = (snake_data[0] & 0xFF00) >> 8;
+			uint8_t old_y = (snake_data[0] & 0x00FF);
+			last_column = old_x;
+			last_dir = 2;
+			if(old_x == VGA_WIDTH - 1) {
+				if(old_y == VGA_HEIGHT - 1) {
+					snake_direction = 1; // West if last column
+				}
+			} else {
+				if(old_y == VGA_HEIGHT - 2) {
+					snake_direction = 3; // Otherwise east
+				}
+			}
+			break;
+		}
+		case 3: { // Going East - should turn north/south after
+			uint8_t old_x = (snake_data[0] & 0xFF00) >> 8;
+			if(old_x != last_column) {
+				if(last_dir == 2) snake_direction = 0; // Go north if previously going south
+				else snake_direction = 2; // Otherwise go south now
+			}
+			break;
+		}
+	}
 }
 
 bool update_snake() {
@@ -154,10 +204,12 @@ extern "C" void kernel_main() {
 		init_gamefield();
 
 		while(true) {
+			if(ai) do_ai();
 			if(!update_snake()) break;
 			tty_init();
 			draw_snake();
-			sleep(60 - snake_speed);
+			if(ai) sleep(1); // Make the AI run faster so I don't have to wait as long
+			else sleep(60 - snake_speed);
 		}
 
 		while(!_enter) {
