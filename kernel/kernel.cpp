@@ -4,8 +4,8 @@
 
 uint16_t *snake_data = (uint16_t*)0x200000; // 2MB in or something cause I'm not gonna implement heap and paging for this
 
-size_t snake_length = 5;
-size_t snake_growth = 0;
+size_t snake_length = 1;
+size_t snake_growth = 5;
 
 extern "C" {
 	uint8_t snake_direction = 0;
@@ -23,6 +23,7 @@ uint8_t snake_speed = 0;
 // 3 = East
 
 void spawn_apple() {
+	tty_putat(' ', (apple & 0xFF00) >> 8, apple & 0xFF); // Undraw old apple
 	while(true) {
 		apple = ((rand() % VGA_WIDTH) << 8) | (rand() % VGA_HEIGHT);
 		bool b = true;
@@ -33,6 +34,8 @@ void spawn_apple() {
 			}
 		if(b) break;
 	}
+	tty_setcolor(VGA_GREEN, VGA_BLACK);
+	tty_putat('#', (apple & 0xFF00) >> 8, apple & 0xFF); // Draw new apple
 	srand(system_timer_ms);
 }
 
@@ -183,6 +186,14 @@ bool update_snake() {
 		spawn_apple();
 	}
 
+	// Draw new head
+	tty_setcolor(VGA_WHITE, VGA_BLACK);
+	tty_putat('#', (snake_data[0] & 0xFF00) >> 8, snake_data[0] & 0xFF);
+
+	// Replace old head with snake body character
+	tty_setcolor(VGA_DGRAY, VGA_BLACK);
+	tty_putat('#', (head_pos & 0xFF00) >> 8, head_pos & 0xFF);
+
 	// Update body position
 	uint16_t snake_end = snake_data[snake_length - 1];
 	for(size_t i = snake_length; i > 1; i--)
@@ -195,19 +206,22 @@ bool update_snake() {
 		snake_data[snake_length] = snake_end;
 		snake_length++;
 		snake_growth--;
+	} else {
+		tty_putat(' ', (snake_end & 0xFF00) >> 8, snake_end & 0xFF); // Remove snake end if we didn't grow
 	}
 	return true;
 }
 
 extern "C" void kernel_main() {
 	while(true) {
+		tty_init();
 		init_gamefield();
 
 		while(true) {
 			if(ai) do_ai();
 			if(!update_snake()) break;
-			tty_init();
-			draw_snake();
+			//tty_init();
+			//draw_snake();
 			if(ai) sleep(1); // Make the AI run faster so I don't have to wait as long
 			else sleep(60 - snake_speed);
 		}
