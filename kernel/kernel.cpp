@@ -183,7 +183,6 @@ bool update_snake() {
 	if(snake_data[0] == apple) {
 		snake_growth += 5;
 		if(snake_speed < 50) snake_speed++;
-		spawn_apple();
 	}
 
 	// Draw new head
@@ -208,6 +207,11 @@ bool update_snake() {
 		snake_growth--;
 	} else {
 		tty_putat(' ', (snake_end & 0xFF00) >> 8, snake_end & 0xFF); // Remove snake end if we didn't grow
+	}
+
+	// Spawn new apple
+	if(snake_data[0] == apple) {
+		spawn_apple();
 	}
 	return true;
 }

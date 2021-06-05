@@ -1,3 +1,5 @@
 *.o
 isodir
 snek.iso
+*.sublime-project
+*.sublime-workspace
