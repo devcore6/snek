@@ -41,6 +41,7 @@ extern void tty_scroll();
 extern void tty_putat(char c, uint8_t x, uint8_t y);
 extern void tty_putchar(char c);
 extern void tty_write(const char* data);
+extern void tty_disablecursor();
 
 # ifdef __cplusplus
 }

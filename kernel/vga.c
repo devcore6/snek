@@ -1,4 +1,5 @@
 #include <vga.h>
+#include <io.h>
 
 const size_t VGA_WIDTH = 80;
 const size_t VGA_HEIGHT = 25;
@@ -54,4 +55,9 @@ void tty_write(const char* data) {
 	size_t len = strlen(data);
 	for(size_t i = 0; i < len; i++)
 		tty_putchar(data[i]);
+}
+
+void tty_disablecursor() {
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, 0x20);
 }

@@ -17,6 +17,10 @@ uint16_t apple = 0;
 
 uint8_t snake_speed = 0;
 
+constexpr uint8_t WIDTH_SCALE = 2;
+constexpr uint8_t SNAKE_WIDTH = 80 / WIDTH_SCALE;
+
+
 // 0 = North
 // 1 = West
 // 2 = South
@@ -25,7 +29,7 @@ uint8_t snake_speed = 0;
 void spawn_apple() {
 	tty_putat(' ', (apple & 0xFF00) >> 8, apple & 0xFF); // Undraw old apple
 	while(true) {
-		apple = ((rand() % VGA_WIDTH) << 8) | (rand() % VGA_HEIGHT);
+		apple = ((rand() % SNAKE_WIDTH) << 8) | (rand() % VGA_HEIGHT);
 		bool b = true;
 		for(size_t i = 0; i < snake_length; i++)
 			if(apple == snake_data[i]) {
@@ -34,8 +38,14 @@ void spawn_apple() {
 			}
 		if(b) break;
 	}
+
+	// Draw new apple
 	tty_setcolor(VGA_GREEN, VGA_BLACK);
-	tty_putat('#', (apple & 0xFF00) >> 8, apple & 0xFF); // Draw new apple
+	tty_putat('[', ((apple & 0xFF00) >> 8) * WIDTH_SCALE, apple & 0xFF);
+	for(size_t i = 1; i < WIDTH_SCALE - 1; i++)
+		tty_putat(' ', ((apple & 0xFF00) >> 8) * WIDTH_SCALE + i, apple & 0xFF);
+	tty_putat(']', ((apple & 0xFF00) >> 8) * WIDTH_SCALE + WIDTH_SCALE - 1, apple & 0xFF);
+
 	srand(system_timer_ms);
 }
 
@@ -46,13 +56,13 @@ bool skipping = false;
 uint8_t skip_pos_x = 0;
 
 void init_gamefield() {
-	memset(snake_data, 0, VGA_WIDTH * VGA_HEIGHT);
+	memset(snake_data, 0, SNAKE_WIDTH * VGA_HEIGHT);
 	snake_length = 5;
 	snake_direction = 0;
 	snake_growth = 0;
 	snake_speed = 0;
 	for(size_t i = 0; i < snake_length; i++) {
-		uint8_t x = VGA_WIDTH / 2;
+		uint8_t x = SNAKE_WIDTH / 2;
 		uint8_t y = VGA_HEIGHT / 2 + i;
 		snake_data[i] = (x << 8) | y;
 	}
@@ -66,12 +76,23 @@ void init_gamefield() {
 
 void draw_snake() {
 	tty_setcolor(VGA_GREEN, VGA_BLACK);
-	tty_putat('#', (apple & 0xFF00) >> 8, apple & 0xFF);
+	tty_putat('[', ((apple & 0xFF00) >> 8) * WIDTH_SCALE, apple & 0xFF);
+	for(size_t i = 1; i < WIDTH_SCALE - 1; i++)
+		tty_putat('#', ((apple & 0xFF00) >> 8) * WIDTH_SCALE + i, apple & 0xFF);
+	tty_putat(']', ((apple & 0xFF00) >> 8) * WIDTH_SCALE + WIDTH_SCALE - 1, apple & 0xFF);
+
 	tty_setcolor(VGA_WHITE, VGA_BLACK);
-	tty_putat('#', (snake_data[0] & 0xFF00) >> 8, snake_data[0] & 0xFF);
+	tty_putat('[', ((snake_data[0] & 0xFF00) >> 8) * WIDTH_SCALE, snake_data[0] & 0xFF);
+	for(size_t i = 1; i < WIDTH_SCALE - 1; i++)
+		tty_putat('#', ((snake_data[0] & 0xFF00) >> 8) * WIDTH_SCALE + i, snake_data[0] & 0xFF);
+	tty_putat(']', ((snake_data[0] & 0xFF00) >> 8) * WIDTH_SCALE + WIDTH_SCALE - 1, snake_data[0] & 0xFF);
 	tty_setcolor(VGA_DGRAY, VGA_BLACK);
-	for(size_t i = 1; i < snake_length; i++) {
-		tty_putat('#', (snake_data[i] & 0xFF00) >> 8, snake_data[i] & 0xFF);
+
+	for(size_t j = 1; j < snake_length; j++) {
+		tty_putat('[', ((snake_data[j] & 0xFF00) >> 8) * WIDTH_SCALE, snake_data[j] & 0xFF);
+		for(size_t i = 1; i < WIDTH_SCALE - 1; i++)
+			tty_putat('#', ((snake_data[j] & 0xFF00) >> 8) * WIDTH_SCALE + i, snake_data[j] & 0xFF);
+		tty_putat(']', ((snake_data[j] & 0xFF00) >> 8) * WIDTH_SCALE + WIDTH_SCALE - 1, snake_data[j] & 0xFF);
 	}
 }
 
@@ -82,16 +103,12 @@ void die() {
 }
 
 void do_ai() {
-	bool crossing_over = false;
-	bool __crossing = false; // Only count as crossing over if at least 2 blocks are crossing
+	uint8_t crossing_over = 0;
 	for(size_t i = 0; i < snake_length; i++) {
 		// Checking whether or not we're crossing over is pretty simple
 		uint8_t y = (snake_data[i] & 0x00FF);
 		if(y == VGA_HEIGHT - 1) {
-			if(__crossing) {
-				crossing_over = true;
-				break;
-			} else __crossing = true;
+			crossing_over++;
 		}
 	}
 	// Checking whether we skipped or not is harder, so we're gonna make it a little less efficient and just not check at all
@@ -99,8 +116,8 @@ void do_ai() {
 	uint8_t horizontal_space = 0;
 	{
 		uint8_t start_x = (snake_data[0] & 0xFF00) >> 8;
-		if(!crossing_over) {
-			horizontal_space = VGA_WIDTH - 1 - start_x;
+		if(crossing_over < 2) {
+			horizontal_space = SNAKE_WIDTH - start_x;
 		} else {
 			uint8_t end_x = (snake_data[snake_length - 1] & 0xFF00) >> 8;
 			horizontal_space = end_x - start_x;
@@ -119,8 +136,8 @@ void do_ai() {
 			last_dir = 0;
 			if(old_y == 0) {
 				snake_direction = 3;
-				if(old_x >= skip_pos_x && !crossing_over) {
-					uint8_t apple_x = (apple & 0xFF00) >> 8;
+				uint8_t apple_x = (apple & 0xFF00) >> 8;
+				if(old_x >= skip_pos_x) {
 					if((apple_x > old_x) && ((apple_x - old_x) < horizontal_space)) {
 						skipping = true;
 						skipped = true;
@@ -141,7 +158,7 @@ void do_ai() {
 			uint8_t old_x = (snake_data[0] & 0xFF00) >> 8;
 			uint8_t old_y = (snake_data[0] & 0x00FF);
 			last_dir = 2;
-			if(!crossing_over && (!skipped || skip_pos_x < old_x)) {
+			if(crossing_over < 2 && (!skipped || skip_pos_x < old_x)) {
 				uint8_t apple_x = (apple & 0xFF00) >> 8;
 				if(apple_x < old_x) { // Apple is behind us and we're not crossing over
 					if(old_y == VGA_HEIGHT - 1) {
@@ -150,7 +167,7 @@ void do_ai() {
 					break;
 				}
 			}
-			if(old_x == VGA_WIDTH - 1) {
+			if(old_x == SNAKE_WIDTH - 1) {
 				if(old_y == VGA_HEIGHT - 1) {
 					snake_direction = 1; // West if last column
 				}
@@ -200,7 +217,7 @@ bool update_snake() {
 			uint8_t old_x = (snake_data[0] & 0xFF00) >> 8;
 			uint8_t old_y = (snake_data[0] & 0x00FF);
 			old_x--;
-			if(old_x > VGA_WIDTH) {
+			if(old_x > SNAKE_WIDTH) {
 				die();
 				return false;
 			}
@@ -222,7 +239,7 @@ bool update_snake() {
 			uint8_t old_x = (snake_data[0] & 0xFF00) >> 8;
 			uint8_t old_y = (snake_data[0] & 0x00FF);
 			old_x++;
-			if(old_x > VGA_WIDTH) {
+			if(old_x > SNAKE_WIDTH) {
 				die();
 				return false;
 			}
@@ -238,19 +255,30 @@ bool update_snake() {
 			return false;
 		}
 
+	bool redraw = false;
+
 	// Check for head collision with apple
 	if(snake_data[0] == apple) {
 		snake_growth += 5;
 		if(snake_speed < 50) snake_speed++;
+		redraw = true;
 	}
 
-	// Draw new head
-	tty_setcolor(VGA_WHITE, VGA_BLACK);
-	tty_putat('#', (snake_data[0] & 0xFF00) >> 8, snake_data[0] & 0xFF);
+	if(!redraw) {
+		// Draw new head
+		tty_setcolor(VGA_WHITE, VGA_BLACK);
+		tty_putat('[', ((snake_data[0] & 0xFF00) >> 8) * WIDTH_SCALE, snake_data[0] & 0xFF);
+		for(size_t i = 1; i < WIDTH_SCALE - 1; i++)
+			tty_putat('#', ((snake_data[0] & 0xFF00) >> 8) * WIDTH_SCALE + i, snake_data[0] & 0xFF);
+		tty_putat(']', ((snake_data[0] & 0xFF00) >> 8) * WIDTH_SCALE + WIDTH_SCALE - 1, snake_data[0] & 0xFF);
 
-	// Replace old head with snake body character
-	tty_setcolor(VGA_DGRAY, VGA_BLACK);
-	tty_putat('#', (head_pos & 0xFF00) >> 8, head_pos & 0xFF);
+		// Replace old head with snake body character
+		tty_setcolor(VGA_DGRAY, VGA_BLACK);
+		tty_putat('[', ((head_pos & 0xFF00) >> 8) * WIDTH_SCALE, head_pos & 0xFF);
+		for(size_t i = 1; i < WIDTH_SCALE - 1; i++)
+			tty_putat('#', ((head_pos & 0xFF00) >> 8) * WIDTH_SCALE + i, head_pos & 0xFF);
+		tty_putat(']', ((head_pos & 0xFF00) >> 8) * WIDTH_SCALE + WIDTH_SCALE - 1, head_pos & 0xFF);
+	}
 
 	// Update body position
 	uint16_t snake_end = snake_data[snake_length - 1];
@@ -265,17 +293,21 @@ bool update_snake() {
 		snake_length++;
 		snake_growth--;
 	} else {
-		tty_putat(' ', (snake_end & 0xFF00) >> 8, snake_end & 0xFF); // Remove snake end if we didn't grow
+		for(size_t i = 0; i < WIDTH_SCALE ; i++)
+			tty_putat(' ', ((snake_end & 0xFF00) >> 8) * WIDTH_SCALE + i, snake_end & 0xFF); // Remove snake end if we didn't grow
 	}
 
 	// Spawn new apple
 	if(snake_data[0] == apple) {
 		spawn_apple();
 	}
+
+	if(redraw) draw_snake();
 	return true;
 }
 
 extern "C" void kernel_main() {
+	tty_disablecursor();
 	while(true) {
 		tty_init();
 		init_gamefield();
