@@ -26,8 +26,13 @@ constexpr uint8_t SNAKE_WIDTH = 80 / WIDTH_SCALE;
 // 2 = South
 // 3 = East
 
-void spawn_apple() {
+bool spawn_apple() {
 	tty_putat(' ', (apple & 0xFF00) >> 8, apple & 0xFF); // Undraw old apple
+	if(snake_length == SNAKE_WIDTH * VGA_HEIGHT) {
+		tty_init();
+		tty_write("Congratulations, you won!");
+		return false;
+	}
 	while(true) {
 		apple = ((rand() % SNAKE_WIDTH) << 8) | (rand() % VGA_HEIGHT);
 		bool b = true;
@@ -47,6 +52,7 @@ void spawn_apple() {
 	tty_putat(']', ((apple & 0xFF00) >> 8) * WIDTH_SCALE + WIDTH_SCALE - 1, apple & 0xFF);
 
 	srand(system_timer_ms);
+	return true;
 }
 
 uint8_t last_dir = 0;
@@ -299,7 +305,7 @@ bool update_snake() {
 
 	// Spawn new apple
 	if(snake_data[0] == apple) {
-		spawn_apple();
+		if(!spawn_apple()) return false;
 	}
 
 	if(redraw) draw_snake();
